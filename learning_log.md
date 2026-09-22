@@ -137,3 +137,22 @@ Where I am in the overall journey
 **Why it happened:** Back in Project 1 setup, I loaded `br_netfilter` with `sudo modprobe br_netfilter` and set the related settings with `echo 1 | sudo tee /proc/sys/net/...`. Neither of those is persistent — they only last until the next reboot. Sometime in the 3 weeks since we last touched this, the worker VMs restarted (most likely the Mac Mini sleeping or restarting), the module unloaded, and Flannel couldn't function without it. That cascaded into every app pod on the affected nodes failing to get network sandboxes at all. Fixed it properly this time: reloaded the module, but also added it to `/etc/modules-load.d/k8s.conf` (loads automatically on every boot from now on) and moved the sysctl settings into `/etc/sysctl.d/k8s.conf` instead of the one-off `/proc` writes.
 
 **What surprised me:** This wasn't caused by anything I did in Project 2 — it was a latent problem from Project 1's setup that had been sitting there the whole time, waiting for the first reboot to expose it. A "one-time setup command" and a "permanent setting" look identical the moment you type them, but behave completely differently the next time the machine restarts. Also a good reminder that "it worked when I set it up" and "it's actually configured correctly" aren't the same claim.
+
+## 2026-09-22 — Exercise 1.4 (Resource limits in action)
+
+**What I did:** Read the `resources:` block in my own `k8s/deployment.yaml` and tried to explain requests vs. limits before checking my understanding.
+
+**What I observed:**
+```yaml
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+```
+
+**Why it happened / what it actually means:** A request is what the container is *guaranteed* and, more specifically, what the scheduler uses to decide which node even has room to place the pod — it's a reservation, not just a rough estimate. A limit is a hard ceiling on that *one specific container*, completely independent of anything else running on the node — not a shared pool. Between the request and the limit is a totally normal "bursting" zone: a container using more than its request but less than its limit triggers absolutely nothing, no warning, no log entry — that gap is the entire point of having a limit higher than the request in the first place. What happens when a container actually *hits* its limit depends entirely on which resource it is: memory is OOMKilled instantly (the kernel just kills the process — shows up as `Reason: OOMKilled` in `kubectl describe pod`, and repeated kills lead to `CrashLoopBackOff`), while CPU is only throttled (slowed down), never killed.
+
+**What surprised me:** My instinct was that going over a limit would trigger some kind of warning or soft flag, and I assumed memory and CPU would behave the same way. Neither was true. Memory and CPU are fundamentally different kinds of resources — CPU is "compressible" (the kernel can just hand out fewer cycles per second without anything breaking), memory isn't (once it's allocated, the only way to reclaim it is to kill the process). Same rule, same-looking YAML, completely different real-world consequence depending on which resource gets exceeded — the kind of thing that causes real confusion in production incidents ("CPU dashboard looks fine, why did my pod die?" — it was memory).
