@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/oge1ata/platform-project-one.git
+    repoURL: https://github.com/oge1ata/gitops-k8s-pipeline.git
     targetRevision: master
     path: k8s
   destination:
