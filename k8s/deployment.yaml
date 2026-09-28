@@ -31,10 +31,14 @@ apiVersion: v1
 kind: Service
 metadata:
   name: demo-app
+  labels:
+    app: demo-app        # added
 spec:
   selector:
     app: demo-app
   ports:
-  - port: 80
+  - name: http           # added
+    port: 80
     targetPort: 8000
+
 
