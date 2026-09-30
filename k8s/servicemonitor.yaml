@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: demo-app
+  labels:
+    release: monitoring      # Prometheus only picks up ServiceMonitors with this label
+spec:
+  selector:
+    matchLabels:
+      app: demo-app          # find Services with this label
+  endpoints:
+  - port: http               # the port *name* on the Service
+    path: /metrics
+    interval: 15s
